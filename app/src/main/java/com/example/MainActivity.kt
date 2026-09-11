@@ -60,6 +60,10 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.platform.LocalContext
+import com.example.data.SampGameDataManager
+import com.example.ui.GameDataDownloaderDialog
+import com.example.ui.GameDataPromptDialog
 import com.example.ui.GameDatabaseScreen
 import com.example.ui.LoadingScreen
 import com.example.ui.ServerListScreen
@@ -91,11 +95,17 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun SampMainApp() {
+    val context = LocalContext.current
+    val gameDataManager = remember { SampGameDataManager.getInstance(context) }
+
     var isLoadingScreen by remember { mutableStateOf(true) }
     var selectedTab by remember { mutableIntStateOf(0) }
     var playerNickname by remember { mutableStateOf("Player_Carl") }
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
+
+    var showDataPromptDialog by remember { mutableStateOf(false) }
+    var showDataDownloaderDialog by remember { mutableStateOf(false) }
 
     AnimatedContent(
         targetState = isLoadingScreen,
@@ -107,6 +117,10 @@ fun SampMainApp() {
             LoadingScreen(
                 onFinished = {
                     isLoadingScreen = false
+                    // Once loading finishes, ask user to download SAMP game data if not already installed
+                    if (!gameDataManager.isGameDataInstalled()) {
+                        showDataPromptDialog = true
+                    }
                 }
             )
         } else {
@@ -161,6 +175,8 @@ fun SampMainApp() {
                     when (selectedTab) {
                         0 -> ServerListScreen(
                             playerNickname = playerNickname,
+                            gameDataManager = gameDataManager,
+                            onRequestDownloadData = { showDataDownloaderDialog = true },
                             onLaunchGame = { server ->
                                 scope.launch {
                                     snackbarHostState.showSnackbar("Connecting to ${server.name}...")
@@ -170,8 +186,38 @@ fun SampMainApp() {
                         1 -> GameDatabaseScreen()
                         2 -> SettingsScreen(
                             currentNickname = playerNickname,
+                            gameDataManager = gameDataManager,
+                            onDownloadData = { showDataDownloaderDialog = true },
                             onSaveNickname = { playerNickname = it },
                             onReplayLoading = { isLoadingScreen = true }
+                        )
+                    }
+
+                    // Automatic Game Data Prompt Dialog
+                    if (showDataPromptDialog) {
+                        GameDataPromptDialog(
+                            onAccept = {
+                                showDataPromptDialog = false
+                                showDataDownloaderDialog = true
+                            },
+                            onDismiss = {
+                                showDataPromptDialog = false
+                                gameDataManager.markPromptShown()
+                            }
+                        )
+                    }
+
+                    // Interactive Game Data Downloader Dialog
+                    if (showDataDownloaderDialog) {
+                        GameDataDownloaderDialog(
+                            gameDataManager = gameDataManager,
+                            onDismiss = { showDataDownloaderDialog = false },
+                            onDownloadFinished = {
+                                showDataDownloaderDialog = false
+                                scope.launch {
+                                    snackbarHostState.showSnackbar("SA-MP Game Data verified! You can now enter the server.")
+                                }
+                            }
                         )
                     }
                 }

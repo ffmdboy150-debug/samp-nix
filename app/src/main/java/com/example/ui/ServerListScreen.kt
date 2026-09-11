@@ -33,6 +33,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.CloudDownload
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.Lock
@@ -77,6 +78,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.data.SampGameDataManager
 import com.example.data.SampOnlinePlayer
 import com.example.data.SampQueryClient
 import com.example.data.SampServer
@@ -99,6 +101,8 @@ import kotlinx.coroutines.launch
 @Composable
 fun ServerListScreen(
     playerNickname: String,
+    gameDataManager: SampGameDataManager,
+    onRequestDownloadData: () -> Unit,
     onLaunchGame: (SampServer) -> Unit
 ) {
     val context = LocalContext.current
@@ -185,13 +189,29 @@ fun ServerListScreen(
         }
 
         item {
+            // Game Data Status Banner (Installed or Action to Download)
+            GameDataStatusBanner(
+                isInstalled = gameDataManager.isGameDataInstalled(),
+                cacheType = gameDataManager.getInstalledCacheType().displayName,
+                onClickDownload = onRequestDownloadData
+            )
+        }
+
+        item {
             // Live Status Card (Online/Offline, Locked/Unlocked, Live Players, Ping)
             LiveServerTelemetryCard(
                 serverInfo = serverInfo,
                 isRefreshing = isRefreshing,
                 pulseAlpha = pulseAlpha,
                 onManualRefresh = { fetchLiveServerData() },
-                onLaunch = { isConnectingDialog = true },
+                onLaunch = {
+                    if (!gameDataManager.isGameDataInstalled()) {
+                        Toast.makeText(context, "SA-MP Game Data files are required! Opening downloader...", Toast.LENGTH_SHORT).show()
+                        onRequestDownloadData()
+                    } else {
+                        isConnectingDialog = true
+                    }
+                },
                 onCopyIp = {
                     val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
                     val clip = ClipData.newPlainText("SAMP Server", "${serverInfo.ip}:${serverInfo.port}")
@@ -289,7 +309,7 @@ fun ServerListScreen(
         }
     }
 
-    // Connect Simulation Dialog
+    // Connect Execution Dialog with Netcode & Engine Launch
     if (isConnectingDialog) {
         val mappedServer = SampServer(
             id = "nexston_official",
@@ -305,16 +325,100 @@ fun ServerListScreen(
             isVerified = true,
             region = "Sri Lanka"
         )
-        LiveConnectDialog(
-            server = mappedServer,
+        FullGameConnectSequenceDialog(
             serverInfo = serverInfo,
             playerNickname = playerNickname,
             onDismiss = { isConnectingDialog = false },
-            onConnected = {
+            onLaunchGameIntent = {
                 isConnectingDialog = false
+                val launchedNative = gameDataManager.launchSampGame(serverInfo.ip, serverInfo.port, playerNickname)
+                if (launchedNative) {
+                    Toast.makeText(context, "Launching SA-MP Client for ${serverInfo.ip}:${serverInfo.port}...", Toast.LENGTH_SHORT).show()
+                }
                 onLaunchGame(mappedServer)
             }
         )
+    }
+}
+
+@Composable
+fun GameDataStatusBanner(
+    isInstalled: Boolean,
+    cacheType: String,
+    onClickDownload: () -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .clickable { onClickDownload() }
+            .border(
+                1.dp,
+                if (isInstalled) Color(0xFF00E676).copy(alpha = 0.5f) else FlameOrange.copy(alpha = 0.8f),
+                RoundedCornerShape(12.dp)
+            ),
+        colors = CardDefaults.cardColors(
+            containerColor = if (isInstalled) Color(0xFF0A140F) else Color(0xFF1E100A)
+        )
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 14.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Row(
+                modifier = Modifier.weight(1f),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(32.dp)
+                        .clip(CircleShape)
+                        .background(if (isInstalled) Color(0x3300E676) else Color(0x33FF6D00)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = if (isInstalled) Icons.Default.CheckCircle else Icons.Default.CloudDownload,
+                        contentDescription = null,
+                        tint = if (isInstalled) Color(0xFF00E676) else FlameOrange,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(10.dp))
+
+                Column {
+                    Text(
+                        text = if (isInstalled) "SA-MP GAME DATA: READY" else "GAME DATA NOT INSTALLED",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = if (isInstalled) Color(0xFF00E676) else FlameOrange,
+                        letterSpacing = 0.5.sp
+                    )
+                    Text(
+                        text = if (isInstalled) "Cache: $cacheType • Tap to manage" else "Tap here to download game files (650 MB)",
+                        fontSize = 11.sp,
+                        color = TextSecondary
+                    )
+                }
+            }
+
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(6.dp))
+                    .background(if (isInstalled) Color(0x2200E676) else CrimsonRed)
+                    .padding(horizontal = 10.dp, vertical = 6.dp)
+            ) {
+                Text(
+                    text = if (isInstalled) "VERIFIED" else "DOWNLOAD",
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = if (isInstalled) Color(0xFF00E676) else Color.White
+                )
+            }
+        }
     }
 }
 

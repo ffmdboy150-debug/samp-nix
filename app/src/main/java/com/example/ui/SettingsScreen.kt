@@ -21,6 +21,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bolt
+import com.example.data.SampGameDataManager
+import androidx.compose.material.icons.filled.CloudDownload
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.DownloadDone
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.Person
@@ -67,6 +71,8 @@ import com.example.ui.theme.TextSecondary
 @Composable
 fun SettingsScreen(
     currentNickname: String,
+    gameDataManager: SampGameDataManager,
+    onDownloadData: () -> Unit,
     onSaveNickname: (String) -> Unit,
     onReplayLoading: () -> Unit
 ) {
@@ -78,6 +84,7 @@ fun SettingsScreen(
     var soundFx by remember { mutableStateOf(true) }
     var vibration by remember { mutableStateOf(true) }
     var wideAspect by remember { mutableStateOf(true) }
+    var isDataInstalled by remember { mutableStateOf(gameDataManager.isGameDataInstalled()) }
 
     Column(
         modifier = Modifier
@@ -391,6 +398,97 @@ fun SettingsScreen(
                         onCheckedChange = { vibration = it },
                         colors = SwitchDefaults.colors(checkedThumbColor = Color.White, checkedTrackColor = CrimsonRed)
                     )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // SAMP Game Cache Management
+        Text(
+            text = "SA-MP GAME DATA & CACHE",
+            fontSize = 11.sp,
+            fontWeight = FontWeight.Bold,
+            color = TextSecondary,
+            letterSpacing = 1.sp
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = CardSurface),
+            shape = RoundedCornerShape(14.dp),
+            border = CardDefaults.outlinedCardBorder().copy(brush = androidx.compose.ui.graphics.SolidColor(CardBorder))
+        ) {
+            Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = if (isDataInstalled) Icons.Default.DownloadDone else Icons.Default.CloudDownload,
+                            contentDescription = "Game Data",
+                            tint = if (isDataInstalled) Color(0xFF00E676) else FlameOrange,
+                            modifier = Modifier.size(22.dp)
+                        )
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Column {
+                            Text(
+                                text = if (isDataInstalled) "Game Files Installed" else "No Game Files Downloaded",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 13.sp,
+                                color = TextPrimary
+                            )
+                            Text(
+                                text = if (isDataInstalled) "GTA SA Cache: ~650 MB (Lite Edition)" else "Download required to play",
+                                fontSize = 11.sp,
+                                color = TextMuted
+                            )
+                        }
+                    }
+
+                    Button(
+                        onClick = { onDownloadData() },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = if (isDataInstalled) CardSurfaceVariant else CrimsonRed
+                        ),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Text(
+                            text = if (isDataInstalled) "Re-download" else "Download",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = if (isDataInstalled) CyberCyan else Color.White
+                        )
+                    }
+                }
+
+                if (isDataInstalled) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.End
+                    ) {
+                        Button(
+                            onClick = {
+                                gameDataManager.resetGameData()
+                                isDataInstalled = false
+                                Toast.makeText(context, "Game cache reset.", Toast.LENGTH_SHORT).show()
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0x33FF1744)),
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Delete,
+                                contentDescription = "Clear",
+                                tint = CrimsonRed,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Clear Game Cache", fontSize = 11.sp, color = CrimsonRed)
+                        }
+                    }
                 }
             }
         }
