@@ -72,10 +72,14 @@ class SampGameDataManager(private val context: Context) {
         private const val KEY_CACHE_TYPE = "key_cache_type"
         private const val KEY_INSTALL_TIME = "key_install_time"
         private const val KEY_PROMPT_SHOWN = "key_first_prompt_shown"
+        private const val KEY_PLAYER_NICKNAME = "key_player_nickname"
 
         val KNOWN_SAMP_PACKAGES = listOf(
-            Pair("com.rockstargames.gtasa", "GTA: San Andreas (SA-MP)"),
             Pair("ru.unisamp_mobile.game", "UniSAMP Mobile Client"),
+            Pair("com.rockstargames.gtasa", "GTA: San Andreas (SA-MP)"),
+            Pair("ro.alynsampmobile.game", "Alyn SA-MP Game"),
+            Pair("ro.alynsampmobile.launcher", "Alyn SA-MP Mobile"),
+            Pair("ru.unisamp_mobile.launcher", "SA-MP Launcher"),
             Pair("com.samp.mobile", "SA-MP Mobile Official"),
             Pair("com.samp.launcher", "SA-MP Android Launcher"),
             Pair("com.arizona.game", "Arizona Mobile"),
@@ -83,7 +87,11 @@ class SampGameDataManager(private val context: Context) {
             Pair("com.liverussia.cr", "Live Russia Mobile"),
             Pair("ru.crmp.mobile", "CRMP Mobile"),
             Pair("com.gtasa.launcher", "GTA SA Launcher"),
-            Pair("com.sanandreas.samp", "San Andreas SA-MP")
+            Pair("com.sanandreas.samp", "San Andreas SA-MP"),
+            Pair("com.fsl.samp", "FSL SA-MP"),
+            Pair("com.santrope.game", "Santrope RP"),
+            Pair("com.mordor.game", "Mordor RP"),
+            Pair("com.br.top", "BR Mobile")
         )
 
         @Volatile
@@ -219,11 +227,29 @@ class SampGameDataManager(private val context: Context) {
                     appName = if (appName.isNotBlank()) appName else label,
                     versionName = info.versionName ?: "1.0"
                 )
-            } catch (_: PackageManager.NameNotFoundException) {
-                // Not installed, continue checking next package
+            } catch (_: Exception) {
+                try {
+                    val launchIntent = pm.getLaunchIntentForPackage(pkg)
+                    if (launchIntent != null) {
+                        return InstalledGameApkInfo(
+                            packageName = pkg,
+                            appName = label,
+                            versionName = "1.0"
+                        )
+                    }
+                } catch (_: Exception) {}
             }
         }
         return null
+    }
+
+    fun getPlayerNickname(): String {
+        return prefs.getString(KEY_PLAYER_NICKNAME, "Madu_M2") ?: "Madu_M2"
+    }
+
+    fun savePlayerNickname(name: String) {
+        val cleanName = name.trim().ifBlank { "Madu_M2" }
+        prefs.edit().putString(KEY_PLAYER_NICKNAME, cleanName).apply()
     }
 
     /**
@@ -234,13 +260,23 @@ class SampGameDataManager(private val context: Context) {
         val iniContent = buildString {
             appendLine("[client]")
             appendLine("name = $nickname")
+            appendLine("nick = $nickname")
+            appendLine("player_name = $nickname")
             appendLine("server = $ip")
+            appendLine("host = $ip")
+            appendLine("ip = $ip")
             appendLine("port = $port")
             appendLine("password = ")
             appendLine("fps = 60")
             appendLine("mode = 1")
             appendLine("chat_lines = 8")
+            appendLine("chatlines = 8")
+            appendLine("fontweight = 1")
+            appendLine("fontsize = 14")
+            appendLine("timestamp = 0")
             appendLine("draw_distance = 1.0")
+            appendLine("fast_connect = 1")
+            appendLine("cutout = 0")
         }
 
         val targetDirs = mutableListOf<File>()
@@ -254,17 +290,28 @@ class SampGameDataManager(private val context: Context) {
             }
         } catch (_: Exception) {}
 
-        // 2. GTA SA data directory: /storage/emulated/0/Android/data/com.rockstargames.gtasa/files/
+        // 2. GTA SA & known SA-MP client package directories in Android/data
+        val externalStorage = Environment.getExternalStorageDirectory()
+        val androidData = File(externalStorage, "Android/data")
+
+        for ((pkg, _) in KNOWN_SAMP_PACKAGES) {
+            try {
+                val pkgDir = File(androidData, "$pkg/files")
+                targetDirs.add(File(pkgDir, "samp"))
+                targetDirs.add(File(pkgDir, "SAMP"))
+            } catch (_: Exception) {}
+        }
+
+        // 3. Common storage root folders
         try {
-            val gtaFiles = File(getGtaSaDataFolderPath())
-            targetDirs.add(File(gtaFiles, "samp"))
-            targetDirs.add(File(gtaFiles, "SAMP"))
+            targetDirs.add(File(externalStorage, "SAMP"))
+            targetDirs.add(File(externalStorage, "samp"))
         } catch (_: Exception) {}
 
-        // 3. Internal storage
+        // 4. Internal app storage
         try {
-            val intSamp = File(context.filesDir, "SAMP")
-            targetDirs.add(intSamp)
+            targetDirs.add(File(context.filesDir, "SAMP"))
+            targetDirs.add(File(context.filesDir, "samp"))
         } catch (_: Exception) {}
 
         for (dir in targetDirs) {
@@ -417,63 +464,100 @@ class SampGameDataManager(private val context: Context) {
      * 2. Launches the installed GTA:SA / SA-MP APK directly into the game!
      */
     fun launchSampGame(ip: String, port: Int, nickname: String): SampLaunchResult {
-        // Step 1: Write settings.ini configuration
+        // Step 1: Write settings.ini configuration to all candidate directories
         writeSampSettings(ip, port, nickname)
 
         val packageManager = context.packageManager
-        val detectedApk = detectInstalledGameApk()
 
-        // If an APK is found on device, launch it directly!
-        if (detectedApk != null) {
-            val launchIntent = packageManager.getLaunchIntentForPackage(detectedApk.packageName)
-            if (launchIntent != null) {
-                launchIntent.apply {
+        // Step 2: Iterate through all known SA-MP / GTA SA packages and attempt direct launch
+        for ((pkg, label) in KNOWN_SAMP_PACKAGES) {
+            // Method A: Standard Launcher Intent
+            try {
+                val launchIntent = packageManager.getLaunchIntentForPackage(pkg)
+                if (launchIntent != null) {
+                    launchIntent.apply {
+                        putExtra("ip", ip)
+                        putExtra("host", ip)
+                        putExtra("server", "$ip:$port")
+                        putExtra("port", port)
+                        putExtra("nick", nickname)
+                        putExtra("name", nickname)
+                        putExtra("player_name", nickname)
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                    }
+                    context.startActivity(launchIntent)
+                    return SampLaunchResult(
+                        isSuccess = true,
+                        launchedPackage = pkg,
+                        gameLabel = label,
+                        message = "SA-MP Mobile Started",
+                        isApkInstalled = true,
+                        targetDataPath = getAppDataFolderPath()
+                    )
+                }
+            } catch (_: Exception) {}
+
+            // Method B: Explicit Component for GTASA Activity
+            val componentCandidates = listOf(
+                ComponentName(pkg, "$pkg.GTASA"),
+                ComponentName(pkg, "com.rockstargames.gtasa.GTASA"),
+                ComponentName(pkg, "$pkg.core.GTASA"),
+                ComponentName(pkg, "$pkg.MainActivity")
+            )
+
+            for (comp in componentCandidates) {
+                try {
+                    val explicitIntent = Intent(Intent.ACTION_MAIN).apply {
+                        component = comp
+                        addCategory(Intent.CATEGORY_LAUNCHER)
+                        putExtra("ip", ip)
+                        putExtra("host", ip)
+                        putExtra("server", "$ip:$port")
+                        putExtra("port", port)
+                        putExtra("nick", nickname)
+                        putExtra("name", nickname)
+                        putExtra("player_name", nickname)
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                    }
+                    context.startActivity(explicitIntent)
+                    return SampLaunchResult(
+                        isSuccess = true,
+                        launchedPackage = pkg,
+                        gameLabel = label,
+                        message = "SA-MP Mobile Started",
+                        isApkInstalled = true,
+                        targetDataPath = getAppDataFolderPath()
+                    )
+                } catch (_: Exception) {}
+            }
+
+            // Method C: Intent targeting the package directly
+            try {
+                val packageIntent = Intent(Intent.ACTION_MAIN).apply {
+                    setPackage(pkg)
+                    addCategory(Intent.CATEGORY_LAUNCHER)
                     putExtra("ip", ip)
-                    putExtra("port", port)
+                    putExtra("host", ip)
                     putExtra("server", "$ip:$port")
+                    putExtra("port", port)
                     putExtra("nick", nickname)
                     putExtra("name", nickname)
                     putExtra("player_name", nickname)
                     addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
                 }
-                try {
-                    context.startActivity(launchIntent)
-                    return SampLaunchResult(
-                        isSuccess = true,
-                        launchedPackage = detectedApk.packageName,
-                        gameLabel = detectedApk.appName,
-                        message = "Starting ${detectedApk.appName} and connecting to $ip:$port...",
-                        isApkInstalled = true,
-                        targetDataPath = getAppDataFolderPath()
-                    )
-                } catch (e: Exception) {
-                    // Fallthrough to try explicit component
-                }
-            }
-
-            // Try explicit component for GTA SA
-            val explicitIntent = Intent().apply {
-                component = ComponentName(detectedApk.packageName, "${detectedApk.packageName}.GTASA")
-                putExtra("ip", ip)
-                putExtra("port", port)
-                putExtra("server", "$ip:$port")
-                putExtra("nick", nickname)
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            }
-            try {
-                context.startActivity(explicitIntent)
+                context.startActivity(packageIntent)
                 return SampLaunchResult(
                     isSuccess = true,
-                    launchedPackage = detectedApk.packageName,
-                    gameLabel = detectedApk.appName,
-                    message = "Launched game via component.",
+                    launchedPackage = pkg,
+                    gameLabel = label,
+                    message = "SA-MP Mobile Started",
                     isApkInstalled = true,
                     targetDataPath = getAppDataFolderPath()
                 )
             } catch (_: Exception) {}
         }
 
-        // Generic Intent for SAMP launch protocol (for custom clients supporting URI)
+        // Method D: Custom SA-MP URI Protocol Scheme (samp://ip:port?nick=...)
         val sampUri = Uri.parse("samp://$ip:$port?nick=$nickname")
         val sampIntent = Intent(Intent.ACTION_VIEW, sampUri).apply {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
@@ -484,13 +568,13 @@ class SampGameDataManager(private val context: Context) {
                 isSuccess = true,
                 launchedPackage = "Generic SA-MP Handler",
                 gameLabel = "SA-MP Client",
-                message = "Connecting via samp://$ip:$port...",
+                message = "SA-MP Mobile Started",
                 isApkInstalled = true,
                 targetDataPath = getAppDataFolderPath()
             )
         } catch (_: Exception) {}
 
-        // No SA-MP APK was found on the phone
+        // If no game APK or handler could be started
         return SampLaunchResult(
             isSuccess = false,
             launchedPackage = null,

@@ -9,6 +9,9 @@
     <queries>
         <package android:name="com.rockstargames.gtasa" />
         <package android:name="ru.unisamp_mobile.game" />
+        <package android:name="ru.unisamp_mobile.launcher" />
+        <package android:name="ro.alynsampmobile.launcher" />
+        <package android:name="ro.alynsampmobile.game" />
         <package android:name="com.samp.mobile" />
         <package android:name="com.samp.launcher" />
         <package android:name="com.arizona.game" />
@@ -18,6 +21,10 @@
         <package android:name="com.gtasa.launcher" />
         <package android:name="com.samp.android" />
         <package android:name="com.sanandreas.samp" />
+        <package android:name="com.fsl.samp" />
+        <package android:name="com.santrope.game" />
+        <package android:name="com.mordor.game" />
+        <package android:name="com.br.top" />
         <intent>
             <action android:name="android.intent.action.MAIN" />
             <category android:name="android.intent.category.LAUNCHER" />

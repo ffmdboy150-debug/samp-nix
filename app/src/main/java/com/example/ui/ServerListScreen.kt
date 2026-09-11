@@ -38,6 +38,7 @@ import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.LockOpen
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.PowerSettingsNew
 import androidx.compose.material.icons.filled.Refresh
@@ -56,6 +57,8 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -125,6 +128,7 @@ fun ServerListScreen(
         )
     }
 
+    var currentNickname by remember { mutableStateOf(gameDataManager.getPlayerNickname()) }
     var playersList by remember { mutableStateOf<List<SampOnlinePlayer>>(emptyList()) }
     var isRefreshing by remember { mutableStateOf(false) }
     var isConnectingDialog by remember { mutableStateOf(false) }
@@ -205,13 +209,23 @@ fun ServerListScreen(
                 serverInfo = serverInfo,
                 isRefreshing = isRefreshing,
                 pulseAlpha = pulseAlpha,
+                currentNickname = currentNickname,
+                onNicknameChange = {
+                    currentNickname = it
+                    gameDataManager.savePlayerNickname(it)
+                },
                 onManualRefresh = { fetchLiveServerData() },
                 onLaunch = {
-                    if (!gameDataManager.isGameDataInstalled()) {
-                        Toast.makeText(context, "SA-MP Game Data files are required! Opening downloader...", Toast.LENGTH_SHORT).show()
-                        onRequestDownloadData()
+                    val cleanNick = currentNickname.trim().ifBlank { "Madu_M2" }
+                    currentNickname = cleanNick
+                    gameDataManager.savePlayerNickname(cleanNick)
+
+                    val launchResult = gameDataManager.launchSampGame(serverInfo.ip, serverInfo.port, cleanNick)
+                    if (launchResult.isSuccess) {
+                        Toast.makeText(context, "SA-MP Mobile Started", Toast.LENGTH_SHORT).show()
                     } else {
-                        isConnectingDialog = true
+                        showManualSetupDialog = true
+                        Toast.makeText(context, "GTA SA / SA-MP APK not detected. Please install game client APK.", Toast.LENGTH_LONG).show()
                     }
                 },
                 onCopyIp = {
@@ -226,6 +240,31 @@ fun ServerListScreen(
         item {
             // Server Specs & Roleplay Info
             ServerDetailsSection(serverInfo = serverInfo)
+        }
+
+        item {
+            // Second Favorite Server from launcher: Ceylon City RolePlay
+            CeylonCityServerCard(
+                currentNickname = currentNickname,
+                onLaunch = { ip, port ->
+                    val cleanNick = currentNickname.trim().ifBlank { "Madu_M2" }
+                    currentNickname = cleanNick
+                    gameDataManager.savePlayerNickname(cleanNick)
+                    val result = gameDataManager.launchSampGame(ip, port, cleanNick)
+                    if (result.isSuccess) {
+                        Toast.makeText(context, "SA-MP Mobile Started", Toast.LENGTH_SHORT).show()
+                    } else {
+                        showManualSetupDialog = true
+                        Toast.makeText(context, "GTA SA / SA-MP APK not detected. Please install game client APK.", Toast.LENGTH_LONG).show()
+                    }
+                },
+                onCopyIp = {
+                    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                    val clip = ClipData.newPlainText("SAMP Server", "ccrp.samp.lk:7777")
+                    clipboard.setPrimaryClip(clip)
+                    Toast.makeText(context, "Copied: ccrp.samp.lk:7777", Toast.LENGTH_SHORT).show()
+                }
+            )
         }
 
         item {
@@ -567,6 +606,8 @@ fun LiveServerTelemetryCard(
     serverInfo: SampServerLiveInfo,
     isRefreshing: Boolean,
     pulseAlpha: Float,
+    currentNickname: String,
+    onNicknameChange: (String) -> Unit,
     onManualRefresh: () -> Unit,
     onLaunch: () -> Unit,
     onCopyIp: () -> Unit
@@ -804,14 +845,45 @@ fun LiveServerTelemetryCard(
                 }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(14.dp))
 
-            // Big Connect Action Button
+            // Player Nickname Input (as shown in SA-MP Launcher)
+            OutlinedTextField(
+                value = currentNickname,
+                onValueChange = onNicknameChange,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("player_nickname_card_input"),
+                label = { Text("PLAYER NICKNAME", fontSize = 11.sp, color = CyberCyan, fontWeight = FontWeight.Bold) },
+                placeholder = { Text("Madu_M2", color = TextMuted) },
+                singleLine = true,
+                leadingIcon = {
+                    Icon(
+                        imageVector = Icons.Default.Person,
+                        contentDescription = "Player Name",
+                        tint = CrimsonRed,
+                        modifier = Modifier.size(20.dp)
+                    )
+                },
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = CrimsonRed,
+                    unfocusedBorderColor = CardBorder,
+                    focusedTextColor = Color.White,
+                    unfocusedTextColor = Color.White,
+                    focusedContainerColor = Color(0xFF101016),
+                    unfocusedContainerColor = Color(0xFF101016)
+                ),
+                shape = RoundedCornerShape(10.dp)
+            )
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            // Big Connect Action Button (Directly connects and opens SA-MP into game)
             Button(
                 onClick = onLaunch,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(48.dp)
+                    .height(52.dp)
                     .testTag("launch_official_server_btn"),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = CrimsonRed,
@@ -823,14 +895,14 @@ fun LiveServerTelemetryCard(
                 Icon(
                     imageVector = Icons.Default.PlayArrow,
                     contentDescription = "Connect",
-                    modifier = Modifier.size(22.dp)
+                    modifier = Modifier.size(24.dp)
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    text = if (serverInfo.isOnline) "CONNECT & ENTER CITY" else "SERVER IS OFFLINE",
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 13.sp,
-                    letterSpacing = 1.sp
+                    text = if (serverInfo.isOnline) "CONNECT" else "SERVER IS OFFLINE",
+                    fontWeight = FontWeight.ExtraBold,
+                    fontSize = 15.sp,
+                    letterSpacing = 1.2.sp
                 )
             }
         }
@@ -889,6 +961,102 @@ fun ServerDetailsSection(serverInfo: SampServerLiveInfo) {
             ) {
                 Text("Official IP Binding", fontSize = 12.sp, color = TextMuted)
                 Text("STRICT (51.79.254.10:7774)", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = CrimsonRed)
+            }
+        }
+    }
+}
+
+@Composable
+fun CeylonCityServerCard(
+    currentNickname: String,
+    onLaunch: (ip: String, port: Int) -> Unit,
+    onCopyIp: () -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag("ceylon_city_server_card"),
+        colors = CardDefaults.cardColors(containerColor = CardSurface),
+        shape = RoundedCornerShape(14.dp),
+        border = CardDefaults.outlinedCardBorder().copy(
+            brush = Brush.verticalGradient(
+                listOf(Color(0xFF2979FF), CardBorder)
+            )
+        )
+    ) {
+        Column(modifier = Modifier.padding(14.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        modifier = Modifier
+                            .size(10.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xFF00E676))
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = "ONLINE",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF00E676)
+                    )
+                }
+                Text(
+                    text = "FAVORITE #2",
+                    fontSize = 10.sp,
+                    color = CyberGold,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Text(
+                text = "Ceylon City RolePlay | SRI LANKA",
+                fontSize = 15.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color.White
+            )
+
+            Spacer(modifier = Modifier.height(3.dp))
+
+            Text(
+                text = "ccrp.samp.lk:7777",
+                fontSize = 12.sp,
+                color = TextSecondary,
+                fontFamily = FontFamily.Monospace
+            )
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Mode: CCRP v2.4",
+                    fontSize = 11.sp,
+                    color = TextMuted
+                )
+                Button(
+                    onClick = { onLaunch("ccrp.samp.lk", 7777) },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1976D2)),
+                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier.height(36.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.PlayArrow,
+                        contentDescription = "Connect",
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("CONNECT", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                }
             }
         }
     }

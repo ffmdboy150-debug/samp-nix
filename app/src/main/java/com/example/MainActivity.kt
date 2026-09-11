@@ -98,9 +98,9 @@ fun SampMainApp() {
     val context = LocalContext.current
     val gameDataManager = remember { SampGameDataManager.getInstance(context) }
 
-    var isLoadingScreen by remember { mutableStateOf(true) }
+    var isLoadingScreen by remember { mutableStateOf(false) }
     var selectedTab by remember { mutableIntStateOf(0) }
-    var playerNickname by remember { mutableStateOf("Player_Carl") }
+    var playerNickname by remember { mutableStateOf(gameDataManager.getPlayerNickname()) }
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
 
@@ -117,10 +117,6 @@ fun SampMainApp() {
             LoadingScreen(
                 onFinished = {
                     isLoadingScreen = false
-                    // Once loading finishes, ask user to download SAMP game data if not already installed
-                    if (!gameDataManager.isGameDataInstalled()) {
-                        showDataPromptDialog = true
-                    }
                 }
             )
         } else {
