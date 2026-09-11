@@ -609,10 +609,10 @@ fun ManualDataAndApkSetupDialog(
                     .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                // Section 1: Destination Folder Path Card
+                // Section 1: Standard 1:1 SA-MP Folder Structure matching ro.alyn_sampmobile.game
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = CardSurfaceVariant),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFF161622)),
                     shape = RoundedCornerShape(10.dp),
                     border = CardDefaults.outlinedCardBorder().copy(brush = androidx.compose.ui.graphics.SolidColor(CardBorder))
                 ) {
@@ -623,15 +623,15 @@ fun ManualDataAndApkSetupDialog(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                text = "📁 PASTE DATA FILES HERE (ZArchiver):",
+                                text = "📁 STANDARD SA-MP MOBILE FOLDER LAYOUT",
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = FlameOrange
+                                color = CyberCyan
                             )
                             Box(
                                 modifier = Modifier
                                     .clip(RoundedCornerShape(6.dp))
-                                    .background(Color(0x33FF6D00))
+                                    .background(Color(0x3300E5FF))
                                     .clickable {
                                         val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
                                         val clip = ClipData.newPlainText("Game Data Path", storageInfo.appDataPath)
@@ -641,9 +641,9 @@ fun ManualDataAndApkSetupDialog(
                                     .padding(horizontal = 8.dp, vertical = 4.dp)
                             ) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(Icons.Default.ContentCopy, contentDescription = "Copy", tint = FlameOrange, modifier = Modifier.size(12.dp))
+                                    Icon(Icons.Default.ContentCopy, contentDescription = "Copy", tint = CyberCyan, modifier = Modifier.size(12.dp))
                                     Spacer(modifier = Modifier.width(4.dp))
-                                    Text("COPY PATH", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = FlameOrange)
+                                    Text("COPY PATH", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = CyberCyan)
                                 }
                             }
                         }
@@ -657,13 +657,49 @@ fun ManualDataAndApkSetupDialog(
                             color = Color.White
                         )
 
-                        Spacer(modifier = Modifier.height(4.dp))
+                        Spacer(modifier = Modifier.height(8.dp))
 
-                        Text(
-                            text = "Or paste in standard GTA path: ${storageInfo.gtaSaDataPath}",
-                            fontSize = 10.sp,
-                            color = TextMuted
-                        )
+                        // Visual Directory Structure Tree
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(Color(0xFF0D0D14))
+                                .padding(8.dp)
+                        ) {
+                            Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                                Text("📂 files/", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = CyberGold)
+                                Text("   ├── 📁 anim (anim.img, cuts.img, ped.ifp)", fontSize = 10.sp, color = TextSecondary)
+                                Text("   ├── 📁 audio (CONFIG, SFX, streams)", fontSize = 10.sp, color = TextSecondary)
+                                Text("   ├── 📁 AZVoice (azvoice.dat)", fontSize = 10.sp, color = TextSecondary)
+                                Text("   ├── 📁 data (handling.cfg, surface.dat, gta.dat...)", fontSize = 10.sp, color = TextSecondary)
+                                Text("   ├── 📁 fonts (font1.dat, font2.dat, font_samp.dat)", fontSize = 10.sp, color = TextSecondary)
+                                Text("   ├── 📁 models (coll/ peds.col, effects.fxp, MINFO.BIN)", fontSize = 10.sp, color = TextSecondary)
+                                Text("   ├── 📁 SAMP (settings.ini, settings.json, main.scm...)", fontSize = 10.sp, fontWeight = FontWeight.SemiBold, color = CyberCyan)
+                                Text("   ├── 📁 texdb (gta3/, samp/, player/, gta3.img...)", fontSize = 10.sp, color = TextSecondary)
+                                Text("   └── 📄 CINFO.BIN, gta_sa.set, GTASAMP10.b, stream.ini", fontSize = 10.sp, color = TextMuted)
+                                Text("📄 Alyn_SAMPMOBILE_log.txt, servers.txt", fontSize = 10.sp, color = TextMuted)
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        // Quick Auto-Restore / Auto-Generate Button
+                        Button(
+                            onClick = {
+                                val ext = java.io.File(storageInfo.appDataPath)
+                                gameDataManager.createStandardSampDataStructure(ext, gameDataManager.getPlayerNickname(), "51.79.254.10", 7774)
+                                storageInfo = gameDataManager.scanDataFiles()
+                                Toast.makeText(context, "✅ Standard SA-MP Folders & Settings generated!", Toast.LENGTH_SHORT).show()
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1E293B)),
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Icon(Icons.Default.Storage, contentDescription = "Generate", tint = CyberCyan, modifier = Modifier.size(14.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("⚡ Auto-Create 1:1 SA-MP Folder Layout", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = CyberCyan)
+                        }
                     }
                 }
 
@@ -723,11 +759,41 @@ fun ManualDataAndApkSetupDialog(
                             text = if (storageInfo.hasFiles) {
                                 "Location: ${storageInfo.detectedLocationName} (${storageInfo.detectedFilesCount} files ready)"
                             } else {
-                                "Files not found yet. Copy your texdb, data, and audio files to the folder above, then tap 'Re-scan'."
+                                "Files not found yet. Copy your texdb, data, and audio files to the folder above, or tap 'Auto-Create'."
                             },
                             fontSize = 11.sp,
                             color = TextSecondary
                         )
+
+                        if (storageInfo.detectedSubfolders.isNotEmpty()) {
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "Folders: " + storageInfo.detectedSubfolders.joinToString(", "),
+                                fontSize = 10.sp,
+                                color = Color(0xFF00E676)
+                            )
+                        }
+
+                        if (storageInfo.isAlynSampDetected) {
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(6.dp))
+                                    .background(Color(0xFF0D2818))
+                                    .padding(8.dp)
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Icons.Default.CheckCircle, contentDescription = null, tint = Color(0xFF00E676), modifier = Modifier.size(14.dp))
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(
+                                        text = "Alyn SA-MP folder detected in Download/NIX! Configuration synced.",
+                                        fontSize = 10.sp,
+                                        color = Color(0xFF00E676)
+                                    )
+                                }
+                            }
+                        }
                     }
                 }
 

@@ -7,11 +7,15 @@
     <uses-permission android:name="android.permission.VIBRATE" />
 
     <queries>
+        <package android:name="ro.alyn_sampmobile.game" />
+        <package android:name="ro.alyn_sampmobile.launcher" />
+        <package android:name="ro.alyn_sampmobile" />
+        <package android:name="ro.alynsampmobile.game" />
+        <package android:name="ro.alynsampmobile.launcher" />
+        <package android:name="ro.alynsampmobile" />
         <package android:name="com.rockstargames.gtasa" />
         <package android:name="ru.unisamp_mobile.game" />
         <package android:name="ru.unisamp_mobile.launcher" />
-        <package android:name="ro.alynsampmobile.launcher" />
-        <package android:name="ro.alynsampmobile.game" />
         <package android:name="com.samp.mobile" />
         <package android:name="com.samp.launcher" />
         <package android:name="com.arizona.game" />
