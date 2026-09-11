@@ -106,7 +106,8 @@ fun ServerListScreen(
     playerNickname: String,
     gameDataManager: SampGameDataManager,
     onRequestDownloadData: () -> Unit,
-    onLaunchGame: (SampServer) -> Unit
+    onLaunchGame: (SampServer) -> Unit,
+    onPlayInApp: (ip: String, port: Int, serverName: String) -> Unit = { _, _, _ -> }
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -215,17 +216,23 @@ fun ServerListScreen(
                     gameDataManager.savePlayerNickname(it)
                 },
                 onManualRefresh = { fetchLiveServerData() },
-                onLaunch = {
+                onPlayInApp = {
+                    val cleanNick = currentNickname.trim().ifBlank { "Madu_M2" }
+                    currentNickname = cleanNick
+                    gameDataManager.savePlayerNickname(cleanNick)
+                    onPlayInApp(serverInfo.ip, serverInfo.port, serverInfo.hostname)
+                },
+                onLaunchExternal = {
                     val cleanNick = currentNickname.trim().ifBlank { "Madu_M2" }
                     currentNickname = cleanNick
                     gameDataManager.savePlayerNickname(cleanNick)
 
                     val launchResult = gameDataManager.launchSampGame(serverInfo.ip, serverInfo.port, cleanNick)
                     if (launchResult.isSuccess) {
-                        Toast.makeText(context, "SA-MP Mobile Started", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, "Direct Game APK Started", Toast.LENGTH_SHORT).show()
                     } else {
                         showManualSetupDialog = true
-                        Toast.makeText(context, "GTA SA / SA-MP APK not detected. Please install game client APK.", Toast.LENGTH_LONG).show()
+                        Toast.makeText(context, "GTA SA Game APK not detected. Please run directly inside this app!", Toast.LENGTH_LONG).show()
                     }
                 },
                 onCopyIp = {
@@ -246,16 +253,22 @@ fun ServerListScreen(
             // Second Favorite Server from launcher: Ceylon City RolePlay
             CeylonCityServerCard(
                 currentNickname = currentNickname,
+                onPlayInApp = { ip, port, name ->
+                    val cleanNick = currentNickname.trim().ifBlank { "Madu_M2" }
+                    currentNickname = cleanNick
+                    gameDataManager.savePlayerNickname(cleanNick)
+                    onPlayInApp(ip, port, name)
+                },
                 onLaunch = { ip, port ->
                     val cleanNick = currentNickname.trim().ifBlank { "Madu_M2" }
                     currentNickname = cleanNick
                     gameDataManager.savePlayerNickname(cleanNick)
                     val result = gameDataManager.launchSampGame(ip, port, cleanNick)
                     if (result.isSuccess) {
-                        Toast.makeText(context, "SA-MP Mobile Started", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, "Direct Game APK Started", Toast.LENGTH_SHORT).show()
                     } else {
                         showManualSetupDialog = true
-                        Toast.makeText(context, "GTA SA / SA-MP APK not detected. Please install game client APK.", Toast.LENGTH_LONG).show()
+                        Toast.makeText(context, "GTA SA Game APK not detected.", Toast.LENGTH_LONG).show()
                     }
                 },
                 onCopyIp = {
@@ -609,7 +622,8 @@ fun LiveServerTelemetryCard(
     currentNickname: String,
     onNicknameChange: (String) -> Unit,
     onManualRefresh: () -> Unit,
-    onLaunch: () -> Unit,
+    onPlayInApp: () -> Unit,
+    onLaunchExternal: () -> Unit,
     onCopyIp: () -> Unit
 ) {
     Card(
@@ -878,13 +892,13 @@ fun LiveServerTelemetryCard(
 
             Spacer(modifier = Modifier.height(14.dp))
 
-            // Big Connect Action Button (Directly connects and opens SA-MP into game)
+            // Big Connect Action Button (Runs the game directly inside this app)
             Button(
-                onClick = onLaunch,
+                onClick = onPlayInApp,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(52.dp)
-                    .testTag("launch_official_server_btn"),
+                    .height(54.dp)
+                    .testTag("launch_inapp_game_btn"),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = CrimsonRed,
                     disabledContainerColor = Color.DarkGray
@@ -893,16 +907,35 @@ fun LiveServerTelemetryCard(
                 enabled = serverInfo.isOnline
             ) {
                 Icon(
-                    imageVector = Icons.Default.PlayArrow,
-                    contentDescription = "Connect",
+                    imageVector = Icons.Default.SportsEsports,
+                    contentDescription = "Play In App",
                     modifier = Modifier.size(24.dp)
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    text = if (serverInfo.isOnline) "CONNECT" else "SERVER IS OFFLINE",
+                    text = if (serverInfo.isOnline) "▶ PLAY GAME (RUN IN THIS APP)" else "SERVER IS OFFLINE",
                     fontWeight = FontWeight.ExtraBold,
                     fontSize = 15.sp,
-                    letterSpacing = 1.2.sp
+                    letterSpacing = 0.5.sp
+                )
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Secondary option: Launch standalone external APK if installed
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "🚀 Launch Native GTA:SA Standalone APK",
+                    fontSize = 11.sp,
+                    color = CyberCyan,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier
+                        .clickable { onLaunchExternal() }
+                        .padding(vertical = 4.dp, horizontal = 8.dp)
                 )
             }
         }
@@ -969,6 +1002,7 @@ fun ServerDetailsSection(serverInfo: SampServerLiveInfo) {
 @Composable
 fun CeylonCityServerCard(
     currentNickname: String,
+    onPlayInApp: (ip: String, port: Int, serverName: String) -> Unit,
     onLaunch: (ip: String, port: Int) -> Unit,
     onCopyIp: () -> Unit
 ) {
@@ -1043,19 +1077,21 @@ fun CeylonCityServerCard(
                     fontSize = 11.sp,
                     color = TextMuted
                 )
-                Button(
-                    onClick = { onLaunch("ccrp.samp.lk", 7777) },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1976D2)),
-                    shape = RoundedCornerShape(8.dp),
-                    modifier = Modifier.height(36.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.PlayArrow,
-                        contentDescription = "Connect",
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("CONNECT", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Button(
+                        onClick = { onPlayInApp("ccrp.samp.lk", 7777, "Ceylon City RolePlay") },
+                        colors = ButtonDefaults.buttonColors(containerColor = CrimsonRed),
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier.height(36.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.SportsEsports,
+                            contentDescription = "Play In-App",
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("PLAY IN-APP", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    }
                 }
             }
         }

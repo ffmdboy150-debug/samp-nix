@@ -32,6 +32,7 @@ import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Replay
 import androidx.compose.material.icons.filled.ScreenRotation
 import androidx.compose.material.icons.filled.Speed
+import androidx.compose.material.icons.filled.SportsEsports
 import androidx.compose.material.icons.filled.Vibration
 import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material3.Button
@@ -75,7 +76,8 @@ fun SettingsScreen(
     gameDataManager: SampGameDataManager,
     onDownloadData: () -> Unit,
     onSaveNickname: (String) -> Unit,
-    onReplayLoading: () -> Unit
+    onReplayLoading: () -> Unit,
+    onPlayGame: () -> Unit = {}
 ) {
     val context = LocalContext.current
     var nicknameInput by remember { mutableStateOf(currentNickname) }
@@ -96,6 +98,52 @@ fun SettingsScreen(
             .testTag("settings_screen")
     ) {
         Spacer(modifier = Modifier.height(8.dp))
+
+        // Direct In-App Game Engine Launcher Banner
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { onPlayGame() },
+            colors = CardDefaults.cardColors(containerColor = CardSurface),
+            shape = RoundedCornerShape(14.dp),
+            border = CardDefaults.outlinedCardBorder().copy(brush = androidx.compose.ui.graphics.SolidColor(Color(0xFF00E676)))
+        ) {
+            Row(
+                modifier = Modifier.padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(44.dp)
+                        .clip(CircleShape)
+                        .background(Color(0x3300E676)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.SportsEsports,
+                        contentDescription = "Run In-App Game",
+                        tint = Color(0xFF00E676),
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.width(14.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "PLAY GAME NOW (IN THIS APP)",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White
+                    )
+                    Text(
+                        text = "Direct game engine: Walk, drive, shoot, chat & roleplay!",
+                        fontSize = 11.sp,
+                        color = Color(0xFF00E676)
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(10.dp))
 
         // Replay Loading Screen Banner
         Card(

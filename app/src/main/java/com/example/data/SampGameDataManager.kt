@@ -78,26 +78,18 @@ class SampGameDataManager(private val context: Context) {
         private const val KEY_PLAYER_NICKNAME = "key_player_nickname"
 
         val KNOWN_SAMP_PACKAGES = listOf(
-            Pair("ro.alyn_sampmobile.game", "Alyn SA-MP Mobile Game"),
-            Pair("ro.alyn_sampmobile.launcher", "Alyn SA-MP Launcher"),
-            Pair("ro.alyn_sampmobile", "Alyn SA-MP Mobile"),
-            Pair("ro.alynsampmobile.game", "Alyn SA-MP Mobile"),
-            Pair("ro.alynsampmobile.launcher", "Alyn SA-MP Launcher"),
-            Pair("ru.unisamp_mobile.game", "UniSAMP Mobile Client"),
-            Pair("com.rockstargames.gtasa", "GTA: San Andreas (SA-MP)"),
-            Pair("ru.unisamp_mobile.launcher", "SA-MP Launcher"),
-            Pair("com.samp.mobile", "SA-MP Mobile Official"),
-            Pair("com.samp.launcher", "SA-MP Android Launcher"),
-            Pair("com.arizona.game", "Arizona Mobile"),
-            Pair("com.blackrussia.online", "Black Russia Online"),
-            Pair("com.liverussia.cr", "Live Russia Mobile"),
-            Pair("ru.crmp.mobile", "CRMP Mobile"),
-            Pair("com.gtasa.launcher", "GTA SA Launcher"),
-            Pair("com.sanandreas.samp", "San Andreas SA-MP"),
-            Pair("com.fsl.samp", "FSL SA-MP"),
-            Pair("com.santrope.game", "Santrope RP"),
-            Pair("com.mordor.game", "Mordor RP"),
-            Pair("com.br.top", "BR Mobile")
+            Pair("com.rockstargames.gtasa", "GTA: San Andreas (Direct Game)"),
+            Pair("ro.alyn_sampmobile.game", "Alyn SA-MP Mobile Game Client"),
+            Pair("ro.alynsampmobile.game", "Alyn SA-MP Mobile Game Client"),
+            Pair("ru.unisamp_mobile.game", "UniSAMP Mobile Game Engine"),
+            Pair("com.samp.mobile", "SA-MP Mobile Game Engine"),
+            Pair("com.arizona.game", "Arizona Mobile Game"),
+            Pair("com.blackrussia.online", "Black Russia Game"),
+            Pair("com.liverussia.cr", "Live Russia Game"),
+            Pair("ru.crmp.mobile", "CRMP Game Engine"),
+            Pair("com.santrope.game", "Santrope RP Game"),
+            Pair("com.mordor.game", "Mordor RP Game"),
+            Pair("com.br.top", "BR Mobile Game")
         )
 
         val KNOWN_DATA_SEARCH_PATHS = listOf(

@@ -14,6 +14,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -30,6 +31,7 @@ import androidx.compose.material.icons.filled.Dns
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Replay
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.SportsEsports
 import androidx.compose.material.icons.filled.Storage
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -65,6 +67,7 @@ import com.example.data.SampGameDataManager
 import com.example.ui.GameDataDownloaderDialog
 import com.example.ui.GameDataPromptDialog
 import com.example.ui.GameDatabaseScreen
+import com.example.ui.InAppGameScreen
 import com.example.ui.LoadingScreen
 import com.example.ui.ServerListScreen
 import com.example.ui.SettingsScreen
@@ -99,6 +102,10 @@ fun SampMainApp() {
     val gameDataManager = remember { SampGameDataManager.getInstance(context) }
 
     var isLoadingScreen by remember { mutableStateOf(false) }
+    var isPlayingInAppGame by remember { mutableStateOf(false) }
+    var activeServerName by remember { mutableStateOf("NEXTSTON ROLEPLAY | SRI LANKA") }
+    var activeServerIp by remember { mutableStateOf("51.79.254.10") }
+    var activeServerPort by remember { mutableIntStateOf(7774) }
     var selectedTab by remember { mutableIntStateOf(0) }
     var playerNickname by remember { mutableStateOf(gameDataManager.getPlayerNickname()) }
     val snackbarHostState = remember { SnackbarHostState() }
@@ -107,87 +114,115 @@ fun SampMainApp() {
     var showDataPromptDialog by remember { mutableStateOf(false) }
     var showDataDownloaderDialog by remember { mutableStateOf(false) }
 
-    AnimatedContent(
-        targetState = isLoadingScreen,
-        transitionSpec = { fadeIn() togetherWith fadeOut() },
-        label = "AppScreenTransition"
-    ) { loading ->
-        if (loading) {
-            // Fullscreen Game Loading screen (0% to 100%) with custom Oni Mask background
-            LoadingScreen(
-                onFinished = {
-                    isLoadingScreen = false
-                }
-            )
-        } else {
-            // Main SAMP Game Hub & Launcher
-            Scaffold(
-                modifier = Modifier.fillMaxSize(),
-                containerColor = Color(0xFF0A0A0E),
-                snackbarHost = { SnackbarHost(snackbarHostState) },
-                topBar = {
-                    GameHeader(
-                        playerNickname = playerNickname,
-                        onReplayIntro = { isLoadingScreen = true }
-                    )
-                },
-                bottomBar = {
-                    GameBottomNav(
-                        selectedTab = selectedTab,
-                        onTabSelected = { selectedTab = it }
-                    )
-                }
-            ) { innerPadding ->
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(innerPadding)
-                ) {
-                    // Subtle themed background wallpaper
-                    Image(
-                        painter = painterResource(id = R.drawable.img_bg_character),
-                        contentDescription = "Background",
-                        modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Crop,
-                        alpha = 0.22f
-                    )
-
-                    // Dark gradient scrim
+    if (isPlayingInAppGame) {
+        // Direct In-App SA-MP Game Engine (Runs inside this app!)
+        InAppGameScreen(
+            serverIp = activeServerIp,
+            serverPort = activeServerPort,
+            serverName = activeServerName,
+            playerNickname = playerNickname,
+            onExitGame = { isPlayingInAppGame = false }
+        )
+    } else {
+        AnimatedContent(
+            targetState = isLoadingScreen,
+            transitionSpec = { fadeIn() togetherWith fadeOut() },
+            label = "AppScreenTransition"
+        ) { loading ->
+            if (loading) {
+                // Fullscreen Game Loading screen (0% to 100%) with custom Oni Mask background
+                LoadingScreen(
+                    onFinished = {
+                        isLoadingScreen = false
+                    }
+                )
+            } else {
+                // Main SAMP Game Hub & Launcher
+                Scaffold(
+                    modifier = Modifier.fillMaxSize(),
+                    containerColor = Color(0xFF0A0A0E),
+                    snackbarHost = { SnackbarHost(snackbarHostState) },
+                    topBar = {
+                        GameHeader(
+                            playerNickname = playerNickname,
+                            onPlayNow = {
+                                activeServerName = "NEXTSTON ROLEPLAY | SRI LANKA"
+                                activeServerIp = "51.79.254.10"
+                                activeServerPort = 7774
+                                isPlayingInAppGame = true
+                            },
+                            onReplayIntro = { isLoadingScreen = true }
+                        )
+                    },
+                    bottomBar = {
+                        GameBottomNav(
+                            selectedTab = selectedTab,
+                            onTabSelected = { selectedTab = it }
+                        )
+                    }
+                ) { innerPadding ->
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
-                            .background(
-                                Brush.verticalGradient(
-                                    listOf(
-                                        Color(0xEE0A0A0E),
-                                        Color(0xF50D0D14),
-                                        Color(0xFA0A0A0E)
+                            .padding(innerPadding)
+                    ) {
+                        // Subtle themed background wallpaper
+                        Image(
+                            painter = painterResource(id = R.drawable.img_bg_character),
+                            contentDescription = "Background",
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Crop,
+                            alpha = 0.22f
+                        )
+
+                        // Dark gradient scrim
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(
+                                    Brush.verticalGradient(
+                                        listOf(
+                                            Color(0xEE0A0A0E),
+                                            Color(0xF50D0D14),
+                                            Color(0xFA0A0A0E)
+                                        )
                                     )
                                 )
-                            )
-                    )
+                        )
 
-                    // Content per tab
-                    when (selectedTab) {
-                        0 -> ServerListScreen(
-                            playerNickname = playerNickname,
-                            gameDataManager = gameDataManager,
-                            onRequestDownloadData = { showDataDownloaderDialog = true },
-                            onLaunchGame = { server ->
-                                scope.launch {
-                                    snackbarHostState.showSnackbar("Connecting to ${server.name}...")
+                        // Content per tab
+                        when (selectedTab) {
+                            0 -> ServerListScreen(
+                                playerNickname = playerNickname,
+                                gameDataManager = gameDataManager,
+                                onRequestDownloadData = { showDataDownloaderDialog = true },
+                                onLaunchGame = { server ->
+                                    scope.launch {
+                                        snackbarHostState.showSnackbar("Connecting to ${server.name}...")
+                                    }
+                                },
+                                onPlayInApp = { ip, port, name ->
+                                    activeServerIp = ip
+                                    activeServerPort = port
+                                    activeServerName = name
+                                    isPlayingInAppGame = true
                                 }
-                            }
-                        )
-                        1 -> GameDatabaseScreen()
-                        2 -> SettingsScreen(
-                            currentNickname = playerNickname,
-                            gameDataManager = gameDataManager,
-                            onDownloadData = { showDataDownloaderDialog = true },
-                            onSaveNickname = { playerNickname = it },
-                            onReplayLoading = { isLoadingScreen = true }
-                        )
-                    }
+                            )
+                            1 -> GameDatabaseScreen()
+                            2 -> SettingsScreen(
+                                currentNickname = playerNickname,
+                                gameDataManager = gameDataManager,
+                                onDownloadData = { showDataDownloaderDialog = true },
+                                onSaveNickname = { playerNickname = it },
+                                onReplayLoading = { isLoadingScreen = true },
+                                onPlayGame = {
+                                    activeServerName = "NEXTSTON ROLEPLAY | SRI LANKA"
+                                    activeServerIp = "51.79.254.10"
+                                    activeServerPort = 7774
+                                    isPlayingInAppGame = true
+                                }
+                            )
+                        }
 
                     // Automatic Game Data Prompt Dialog
                     if (showDataPromptDialog) {
@@ -221,10 +256,12 @@ fun SampMainApp() {
         }
     }
 }
+}
 
 @Composable
 fun GameHeader(
     playerNickname: String,
+    onPlayNow: () -> Unit,
     onReplayIntro: () -> Unit
 ) {
     Box(
@@ -290,8 +327,33 @@ fun GameHeader(
                 }
             }
 
-            // Quick Replay Loading Button
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            // Quick Play & Replay Actions
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Button(
+                    onClick = onPlayNow,
+                    modifier = Modifier
+                        .height(36.dp)
+                        .testTag("header_play_now_btn"),
+                    colors = ButtonDefaults.buttonColors(containerColor = CrimsonRed),
+                    shape = RoundedCornerShape(8.dp),
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.SportsEsports,
+                        contentDescription = "Run Game",
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = "RUN GAME",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.ExtraBold
+                    )
+                }
+
                 IconButton(
                     onClick = onReplayIntro,
                     modifier = Modifier
