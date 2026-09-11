@@ -1,6 +1,6 @@
 {
   "name": "SAMP App",
-  "description": "San Andreas Multiplayer (SA-MP) Android application",
+  "description": "Official SA-MP Launcher for 51.79.254.10:7774 (Nexston Roleplay Sri Lanka)",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

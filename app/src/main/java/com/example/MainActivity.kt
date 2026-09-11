@@ -239,7 +239,7 @@ fun GameHeader(
                     }
 
                     Text(
-                        text = "SA-MP 0.3.7 MOBILE • PORTRAIT",
+                        text = "51.79.254.10:7774 • NEXSTON RP",
                         fontSize = 10.sp,
                         fontWeight = FontWeight.SemiBold,
                         color = CyberCyan,
@@ -283,7 +283,7 @@ fun GameBottomNav(
         modifier = Modifier.border(1.dp, CardBorder)
     ) {
         val navItems = listOf(
-            Triple(0, "Servers", Icons.Default.Dns),
+            Triple(0, "Live Server", Icons.Default.Dns),
             Triple(1, "Database", Icons.Default.Storage),
             Triple(2, "Settings", Icons.Default.Settings)
         )
