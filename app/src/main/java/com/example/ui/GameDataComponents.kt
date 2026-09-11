@@ -1,5 +1,11 @@
 package com.example.ui
 
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
+import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
@@ -20,16 +26,23 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.CloudDownload
+import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.DownloadDone
 import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.filled.OpenInNew
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Security
+import androidx.compose.material.icons.filled.Smartphone
 import androidx.compose.material.icons.filled.Speed
+import androidx.compose.material.icons.filled.SportsEsports
 import androidx.compose.material.icons.filled.Storage
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
@@ -66,7 +79,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.GameCacheType
+import com.example.data.GameDataStorageInfo
+import com.example.data.InstalledGameApkInfo
 import com.example.data.SampGameDataManager
+import com.example.data.SampLaunchResult
 import com.example.data.SampServerLiveInfo
 import com.example.ui.theme.CardBorder
 import com.example.ui.theme.CardSurface
@@ -542,6 +558,281 @@ fun FullGameConnectSequenceDialog(
                 shape = RoundedCornerShape(8.dp)
             ) {
                 Text(if (step == 0) "Abort" else "Close Console")
+            }
+        }
+    )
+}
+
+@Composable
+fun ManualDataAndApkSetupDialog(
+    gameDataManager: SampGameDataManager,
+    playerNickname: String,
+    onDismiss: () -> Unit,
+    onLaunchGame: () -> Unit
+) {
+    val context = LocalContext.current
+    var storageInfo by remember { mutableStateOf(gameDataManager.scanDataFiles()) }
+    var installedApk by remember { mutableStateOf(gameDataManager.detectInstalledGameApk()) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        modifier = Modifier.testTag("manual_data_apk_setup_dialog"),
+        containerColor = CardSurface,
+        title = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = Icons.Default.Folder,
+                    contentDescription = "Data Setup",
+                    tint = CyberCyan,
+                    modifier = Modifier.size(24.dp)
+                )
+                Spacer(modifier = Modifier.width(10.dp))
+                Column {
+                    Text(
+                        text = "MANUAL GAME DATA SETUP",
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = TextPrimary
+                    )
+                    Text(
+                        text = "Android/data Path & GTA SA Client Link",
+                        fontSize = 11.sp,
+                        color = TextSecondary
+                    )
+                }
+            }
+        },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                // Section 1: Destination Folder Path Card
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = CardSurfaceVariant),
+                    shape = RoundedCornerShape(10.dp),
+                    border = CardDefaults.outlinedCardBorder().copy(brush = androidx.compose.ui.graphics.SolidColor(CardBorder))
+                ) {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "📁 PASTE DATA FILES HERE (ZArchiver):",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = FlameOrange
+                            )
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(6.dp))
+                                    .background(Color(0x33FF6D00))
+                                    .clickable {
+                                        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                                        val clip = ClipData.newPlainText("Game Data Path", storageInfo.appDataPath)
+                                        clipboard.setPrimaryClip(clip)
+                                        Toast.makeText(context, "Path copied! Paste in ZArchiver: ${storageInfo.appDataPath}", Toast.LENGTH_LONG).show()
+                                    }
+                                    .padding(horizontal = 8.dp, vertical = 4.dp)
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Icons.Default.ContentCopy, contentDescription = "Copy", tint = FlameOrange, modifier = Modifier.size(12.dp))
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text("COPY PATH", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = FlameOrange)
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(6.dp))
+
+                        Text(
+                            text = storageInfo.appDataPath,
+                            fontSize = 11.sp,
+                            fontFamily = FontFamily.Monospace,
+                            color = Color.White
+                        )
+
+                        Spacer(modifier = Modifier.height(4.dp))
+
+                        Text(
+                            text = "Or paste in standard GTA path: ${storageInfo.gtaSaDataPath}",
+                            fontSize = 10.sp,
+                            color = TextMuted
+                        )
+                    }
+                }
+
+                // Section 2: Scanned Status Card
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = if (storageInfo.hasFiles) Color(0xFF0F1A12) else Color(0xFF1E120A)
+                    ),
+                    shape = RoundedCornerShape(10.dp),
+                    border = CardDefaults.outlinedCardBorder().copy(
+                        brush = androidx.compose.ui.graphics.SolidColor(
+                            if (storageInfo.hasFiles) Color(0xFF00E676).copy(alpha = 0.6f) else FlameOrange.copy(alpha = 0.6f)
+                        )
+                    )
+                ) {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = if (storageInfo.hasFiles) Icons.Default.CheckCircle else Icons.Default.Warning,
+                                    contentDescription = null,
+                                    tint = if (storageInfo.hasFiles) Color(0xFF00E676) else FlameOrange,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = if (storageInfo.hasFiles) "DATA FILES DETECTED" else "NO FILES DETECTED YET",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (storageInfo.hasFiles) Color(0xFF00E676) else FlameOrange
+                                )
+                            }
+
+                            Button(
+                                onClick = {
+                                    storageInfo = gameDataManager.scanDataFiles()
+                                    installedApk = gameDataManager.detectInstalledGameApk()
+                                    Toast.makeText(context, "Rescanned! Found ${storageInfo.detectedFilesCount} items.", Toast.LENGTH_SHORT).show()
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = CardSurface),
+                                shape = RoundedCornerShape(6.dp)
+                            ) {
+                                Icon(Icons.Default.Refresh, contentDescription = "Refresh", tint = CyberCyan, modifier = Modifier.size(14.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("Re-scan", fontSize = 10.sp, color = CyberCyan)
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(6.dp))
+
+                        Text(
+                            text = if (storageInfo.hasFiles) {
+                                "Location: ${storageInfo.detectedLocationName} (${storageInfo.detectedFilesCount} files ready)"
+                            } else {
+                                "Files not found yet. Copy your texdb, data, and audio files to the folder above, then tap 'Re-scan'."
+                            },
+                            fontSize = 11.sp,
+                            color = TextSecondary
+                        )
+                    }
+                }
+
+                // Section 3: Installed APK Status
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = CardSurfaceVariant),
+                    shape = RoundedCornerShape(10.dp)
+                ) {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.Smartphone,
+                                contentDescription = "APK",
+                                tint = if (installedApk != null) Color(0xFF00E676) else CyberCyan,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "GTA SA / SA-MP APK STATUS:",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = TextPrimary
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(6.dp))
+
+                        if (installedApk != null) {
+                            Text(
+                                text = "✅ Found: ${installedApk?.appName} (${installedApk?.packageName})",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = Color(0xFF00E676)
+                            )
+                            Text(
+                                text = "When you tap Connect, this client will launch with 51.79.254.10:7774 and your nickname automatically.",
+                                fontSize = 10.sp,
+                                color = TextMuted
+                            )
+                        } else {
+                            Text(
+                                text = "⚠️ No GTA SA / SA-MP APK detected yet.",
+                                fontSize = 11.sp,
+                                color = FlameOrange,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "Game එක open වීමට ඔබගේ phone එකේ GTA:SA හෝ SA-MP APK එක Install වී තිබිය යුතුය. Data files දැමූ පසු Connect ඔබන්න.",
+                                fontSize = 10.sp,
+                                color = TextSecondary
+                            )
+                        }
+                    }
+                }
+
+                // Instructions in Sinhala
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(Color(0xFF14141E))
+                        .padding(10.dp)
+                ) {
+                    Column {
+                        Text(
+                            text = "💡 භාවිතා කරන ආකාරය:",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = CyberCyan
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "1. ZArchiver මගින් ඔබගේ Data files ඉහත Copy කරගත් path එකට paste කරන්න.\n" +
+                                   "2. 'Re-scan' ඔබා files හඳුනාගත් බව තහවුරු කරගන්න.\n" +
+                                   "3. Server පිටුවේ 'CONNECT' එබූ විට IP 51.79.254.10:7774 සහ Nickname ස්වයංක්‍රීයව settings.ini එකට ලියැවී Game එක ආරම්භ වේ.",
+                            fontSize = 10.sp,
+                            color = TextSecondary,
+                            lineHeight = 14.sp
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    onDismiss()
+                    onLaunchGame()
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = CrimsonRed),
+                shape = RoundedCornerShape(8.dp)
+            ) {
+                Icon(Icons.Default.SportsEsports, contentDescription = "Launch", modifier = Modifier.size(16.dp))
+                Spacer(modifier = Modifier.width(6.dp))
+                Text("CONNECT NOW", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+            }
+        },
+        dismissButton = {
+            OutlinedButton(
+                onClick = onDismiss,
+                shape = RoundedCornerShape(8.dp)
+            ) {
+                Text("Close", color = TextSecondary, fontSize = 12.sp)
             }
         }
     )

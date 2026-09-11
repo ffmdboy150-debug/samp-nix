@@ -128,6 +128,7 @@ fun ServerListScreen(
     var playersList by remember { mutableStateOf<List<SampOnlinePlayer>>(emptyList()) }
     var isRefreshing by remember { mutableStateOf(false) }
     var isConnectingDialog by remember { mutableStateOf(false) }
+    var showManualSetupDialog by remember { mutableStateOf(false) }
     var autoRefreshCount by remember { mutableIntStateOf(0) }
 
     // Live Query Function
@@ -193,7 +194,8 @@ fun ServerListScreen(
             GameDataStatusBanner(
                 isInstalled = gameDataManager.isGameDataInstalled(),
                 cacheType = gameDataManager.getInstalledCacheType().displayName,
-                onClickDownload = onRequestDownloadData
+                onClickDownload = onRequestDownloadData,
+                onClickManualSetup = { showManualSetupDialog = true }
             )
         }
 
@@ -331,11 +333,25 @@ fun ServerListScreen(
             onDismiss = { isConnectingDialog = false },
             onLaunchGameIntent = {
                 isConnectingDialog = false
-                val launchedNative = gameDataManager.launchSampGame(serverInfo.ip, serverInfo.port, playerNickname)
-                if (launchedNative) {
-                    Toast.makeText(context, "Launching SA-MP Client for ${serverInfo.ip}:${serverInfo.port}...", Toast.LENGTH_SHORT).show()
+                val launchResult = gameDataManager.launchSampGame(serverInfo.ip, serverInfo.port, playerNickname)
+                if (launchResult.isSuccess) {
+                    Toast.makeText(context, launchResult.message, Toast.LENGTH_LONG).show()
+                    onLaunchGame(mappedServer)
+                } else {
+                    showManualSetupDialog = true
+                    Toast.makeText(context, "Game APK not detected! Opening ZArchiver & Setup guide...", Toast.LENGTH_LONG).show()
                 }
-                onLaunchGame(mappedServer)
+            }
+        )
+    }
+
+    if (showManualSetupDialog) {
+        ManualDataAndApkSetupDialog(
+            gameDataManager = gameDataManager,
+            playerNickname = playerNickname,
+            onDismiss = { showManualSetupDialog = false },
+            onLaunchGame = {
+                isConnectingDialog = true
             }
         )
     }
@@ -345,13 +361,14 @@ fun ServerListScreen(
 fun GameDataStatusBanner(
     isInstalled: Boolean,
     cacheType: String,
-    onClickDownload: () -> Unit
+    onClickDownload: () -> Unit,
+    onClickManualSetup: () -> Unit
 ) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
-            .clickable { onClickDownload() }
+            .clickable { onClickManualSetup() }
             .border(
                 1.dp,
                 if (isInstalled) Color(0xFF00E676).copy(alpha = 0.5f) else FlameOrange.copy(alpha = 0.8f),
@@ -361,62 +378,111 @@ fun GameDataStatusBanner(
             containerColor = if (isInstalled) Color(0xFF0A140F) else Color(0xFF1E100A)
         )
     ) {
-        Row(
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 14.dp, vertical = 10.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
+                .padding(12.dp)
         ) {
             Row(
-                modifier = Modifier.weight(1f),
-                verticalAlignment = Alignment.CenterVertically
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(32.dp)
-                        .clip(CircleShape)
-                        .background(if (isInstalled) Color(0x3300E676) else Color(0x33FF6D00)),
-                    contentAlignment = Alignment.Center
+                Row(
+                    modifier = Modifier.weight(1f),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(
-                        imageVector = if (isInstalled) Icons.Default.CheckCircle else Icons.Default.CloudDownload,
-                        contentDescription = null,
-                        tint = if (isInstalled) Color(0xFF00E676) else FlameOrange,
-                        modifier = Modifier.size(18.dp)
-                    )
+                    Box(
+                        modifier = Modifier
+                            .size(34.dp)
+                            .clip(CircleShape)
+                            .background(if (isInstalled) Color(0x3300E676) else Color(0x33FF6D00)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = if (isInstalled) Icons.Default.CheckCircle else Icons.Default.CloudDownload,
+                            contentDescription = null,
+                            tint = if (isInstalled) Color(0xFF00E676) else FlameOrange,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.width(10.dp))
+
+                    Column {
+                        Text(
+                            text = if (isInstalled) "SA-MP GAME DATA: READY" else "GAME DATA REQUIRED (OR PASTE MANUALLY)",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = if (isInstalled) Color(0xFF00E676) else FlameOrange,
+                            letterSpacing = 0.5.sp
+                        )
+                        Text(
+                            text = if (isInstalled) "Cache: $cacheType • Ready to connect" else "ZArchiver මගින් Data දමන්න හෝ Download කරන්න",
+                            fontSize = 10.sp,
+                            color = TextSecondary
+                        )
+                    }
                 }
 
-                Spacer(modifier = Modifier.width(10.dp))
-
-                Column {
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(if (isInstalled) Color(0x2200E676) else CrimsonRed)
+                        .clickable { if (isInstalled) onClickManualSetup() else onClickDownload() }
+                        .padding(horizontal = 10.dp, vertical = 6.dp)
+                ) {
                     Text(
-                        text = if (isInstalled) "SA-MP GAME DATA: READY" else "GAME DATA NOT INSTALLED",
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                        color = if (isInstalled) Color(0xFF00E676) else FlameOrange,
-                        letterSpacing = 0.5.sp
-                    )
-                    Text(
-                        text = if (isInstalled) "Cache: $cacheType • Tap to manage" else "Tap here to download game files (650 MB)",
-                        fontSize = 11.sp,
-                        color = TextSecondary
+                        text = if (isInstalled) "VERIFIED" else "DOWNLOAD",
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = if (isInstalled) Color(0xFF00E676) else Color.White
                     )
                 }
             }
 
-            Box(
-                modifier = Modifier
-                    .clip(RoundedCornerShape(6.dp))
-                    .background(if (isInstalled) Color(0x2200E676) else CrimsonRed)
-                    .padding(horizontal = 10.dp, vertical = 6.dp)
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Action chips for ZArchiver path & Fast Download
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Text(
-                    text = if (isInstalled) "VERIFIED" else "DOWNLOAD",
-                    fontSize = 10.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = if (isInstalled) Color(0xFF00E676) else Color.White
-                )
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(Color(0xFF161622))
+                        .border(1.dp, CardBorder, RoundedCornerShape(6.dp))
+                        .clickable { onClickManualSetup() }
+                        .padding(vertical = 6.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "📁 ZArchiver Data Path",
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = CyberCyan
+                    )
+                }
+
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(Color(0xFF161622))
+                        .border(1.dp, CardBorder, RoundedCornerShape(6.dp))
+                        .clickable { onClickDownload() }
+                        .padding(vertical = 6.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "⚡ In-App Downloader",
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = CyberGold
+                    )
+                }
             }
         }
     }

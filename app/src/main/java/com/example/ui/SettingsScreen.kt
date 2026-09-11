@@ -21,6 +21,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bolt
+import androidx.compose.material.icons.filled.Folder
 import com.example.data.SampGameDataManager
 import androidx.compose.material.icons.filled.CloudDownload
 import androidx.compose.material.icons.filled.Delete
@@ -85,6 +86,7 @@ fun SettingsScreen(
     var vibration by remember { mutableStateOf(true) }
     var wideAspect by remember { mutableStateOf(true) }
     var isDataInstalled by remember { mutableStateOf(gameDataManager.isGameDataInstalled()) }
+    var showManualDataDialog by remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier
@@ -465,6 +467,28 @@ fun SettingsScreen(
                     }
                 }
 
+                // Manual ZArchiver Data Setup Button
+                Button(
+                    onClick = { showManualDataDialog = true },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(containerColor = CardSurfaceVariant),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Folder,
+                        contentDescription = "ZArchiver",
+                        tint = CyberCyan,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "📁 ZArchiver Data Path & Manual Setup",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = CyberCyan
+                    )
+                }
+
                 if (isDataInstalled) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -494,5 +518,21 @@ fun SettingsScreen(
         }
 
         Spacer(modifier = Modifier.height(100.dp))
+    }
+
+    if (showManualDataDialog) {
+        ManualDataAndApkSetupDialog(
+            gameDataManager = gameDataManager,
+            playerNickname = nicknameInput,
+            onDismiss = {
+                showManualDataDialog = false
+                isDataInstalled = gameDataManager.isGameDataInstalled()
+            },
+            onLaunchGame = {
+                showManualDataDialog = false
+                val res = gameDataManager.launchSampGame("51.79.254.10", 7774, nicknameInput)
+                Toast.makeText(context, res.message, Toast.LENGTH_LONG).show()
+            }
+        )
     }
 }
