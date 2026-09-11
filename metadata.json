@@ -1,0 +1,6 @@
+{
+  "name": "SAMP App",
+  "description": "San Andreas Multiplayer (SA-MP) Android application",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
